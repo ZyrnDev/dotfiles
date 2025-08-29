@@ -1,0 +1,12 @@
+stow
+git
+curl
+wget
+ripgrep
+fd-find
+#fzf
+bat
+eza
+tree
+htop
+jq

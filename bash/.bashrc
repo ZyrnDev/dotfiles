@@ -57,9 +57,9 @@ if [ -n "$force_color_prompt" ]; then
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\[\033[01;31m$(__git_ps1 " (%s)")\[\033[00m\]\$ '
 else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$(__git_ps1 " (%s)")$ '
 fi
 unset color_prompt force_color_prompt
 
@@ -116,8 +116,21 @@ if ! shopt -oq posix; then
   fi
 fi
 
+# Add git prompt support
+if [ -f "$HOME/.local/bin/git-prompt.sh" ]; then
+    . "$HOME/.local/bin/git-prompt.sh"
+    GIT_PS1_SHOWDIRTYSTATE=true
+fi
+
 if [ -f "$HOME/.cargo/env" ]; then
     . "$HOME/.cargo/env"
 fi
 
-export PATH=$HOME/.local/bin:$PATH
+# Set up fzf key bindings and fuzzy completion
+export __FZF_IGNORE_DIRS='.git'
+export FZF_DEFAULT_OPTS='--style full'
+export FZF_CTRL_T_OPTS="--walker-skip $__FZF_IGNORE_DIRS --preview 'batcat -n --color=always {}'"
+export FZF_ALT_C_OPTS="--walker-skip $__FZF_IGNORE_DIRS --preview 'tree -C {}'"
+# eval "$(fzf --bash)" # only for version 0.48.0 and later
+# source /usr/share/doc/fzf/examples/key-bindings.bash # for version 0.47.0 and earlier
+[ -f ~/.fzf.bash ] && source ~/.fzf.bash # for manual installation via git
