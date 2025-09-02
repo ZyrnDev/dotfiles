@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+extract-entry-name() {
+  cut -d"'" -f2
+}
+
+number-lines() {
+  nl -w1 -s '|'
+}
+
+get-menu-entries() {
+  sudo grep '^menuentry' /boot/grub/grub.cfg | extract-entry-name | number-lines
+}
+
+MENU_NUMBER=`get-menu-entries | grep Windows | cut -d"|" -f1 | head -n 1`
+sudo grub-reboot $MENU_NUMBER
+sudo reboot

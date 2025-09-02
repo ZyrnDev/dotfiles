@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
-grep -v '^#' packages | xargs -r sudo apt install -yq
+grep -v '^#' packages | xargs -r sudo apt install -yq && clear
 
-for dir in `find . -maxdepth 1 -type d -not -path '.'`; do
-    stow --target="$HOME" --restow  "${dir##*/}"
+for dir in `find . -maxdepth 1 -type d -not -path '.' | grep -v '\.git'`; do
+    echo "Stowing ${dir##*/}"
+    # stow --target="$HOME" --restow  "${dir##*/}"
 done
