@@ -7,116 +7,116 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
-    "agent": {
-        "default_model": {
-            "provider": "copilot_chat",
-            "model": "gpt-4.1"
-        }
-    },
-    "features": {
-        "edit_prediction_provider": "copilot"
-    },
-    "icon_theme": "Catppuccin Mocha",
-    "ssh_connections": [
-        {
-            "host": "campus-pulse",
-            "username": "unsw",
-            "projects": [
-                {
-                    "paths": ["/home/unsw/CampusPulse"]
-                },
-                {
-                    "paths": ["/home/unsw/campus-pulse"]
-                },
-                {
-                    "paths": ["/home/unsw/database-refactor"]
-                },
-                {
-                    "paths": ["/home/unsw/jack"]
-                }
-            ]
-        },
-        {
-            "host": "rpi5",
-            "projects": [
-                {
-                    "paths": ["/home/mitch/home-lab"]
-                }
-            ]
-        },
-        {
-            "host": "server1",
-            "projects": [
-                {
-                    "paths": ["/home/mitch/lets-go-chat"]
-                }
-            ]
-        },
-        {
-            "host": "aegis1.sdn.unsw.edu.au",
-            "projects": [
-                {
-                    "paths": ["/home/mitch/deployment-artifacts"]
-                },
-                {
-                    "paths": ["/home/mitch/clickhouse-example"]
-                },
-                {
-                    "paths": ["/home/mitch/mitch/server-pxe"]
-                },
-                {
-                    "paths": ["/home/mitch/platform-engineering"]
-                },
-                {
-                    "paths": ["/home/mitch/telescopedpi"]
-                },
-                {
-                    "paths": ["/home/mitch/www.sdn.unsw.edu.au"]
-                }
-            ]
-        },
-        {
-            "host": "mars7",
-            "username": "unsw",
-            "projects": [
-                {
-                    "paths": ["/home/unsw/jack"]
-                }
-            ]
-        },
-        {
-          "host": "venus5",
-          "projects": [
-            {
-              "paths": ["/home/canopus/SRE"]
-            }
-          ]
-        },
-        {
-            "host": "pxe-server",
-            "projects": [
-                {
-                    "paths": ["/home/mitch/pxe"]
-                }
-            ]
-        }
-    ],
-    "base_keymap": "VSCode",
-    "telemetry": {
-        "metrics": false,
-        "diagnostics": false
-    },
-    "ui_font_size": 16,
-    "buffer_font_size": 16,
-    "theme": {
-        "mode": "system",
-        "light": "One Light",
-        "dark": "Catppuccin Mocha"
-    },
-    "format_on_save": "off",
-    "languages": {
-        "Make": {
-            "hard_tabs": true
-        }
+  "agent": {
+    "default_model": {
+      "provider": "copilot_chat",
+      "model": "gpt-4.1"
     }
+  },
+  "features": {
+    "edit_prediction_provider": "copilot"
+  },
+  "icon_theme": "Catppuccin Mocha",
+  "ssh_connections": [
+    {
+      "host": "campus-pulse",
+      "username": "unsw",
+      "projects": [
+        {
+          "paths": ["/home/unsw/CampusPulse"]
+        },
+        {
+          "paths": ["/home/unsw/campus-pulse"]
+        },
+        {
+          "paths": ["/home/unsw/database-refactor"]
+        },
+        {
+          "paths": ["/home/unsw/jack"]
+        }
+      ]
+    },
+    {
+      "host": "rpi5",
+      "projects": [
+        {
+          "paths": ["/home/mitch/home-lab"]
+        }
+      ]
+    },
+    {
+      "host": "server1",
+      "projects": [
+        {
+          "paths": ["/home/mitch/lets-go-chat"]
+        }
+      ]
+    },
+    {
+      "host": "aegis1.sdn.unsw.edu.au",
+      "projects": [
+        {
+          "paths": ["/home/mitch/deployment-artifacts"]
+        },
+        {
+          "paths": ["/home/mitch/clickhouse-example"]
+        },
+        {
+          "paths": ["/home/mitch/mitch/server-pxe"]
+        },
+        {
+          "paths": ["/home/mitch/platform-engineering"]
+        },
+        {
+          "paths": ["/home/mitch/telescopedpi"]
+        },
+        {
+          "paths": ["/home/mitch/www.sdn.unsw.edu.au"]
+        }
+      ]
+    },
+    {
+      "host": "mars7",
+      "username": "unsw",
+      "projects": [
+        {
+          "paths": ["/home/unsw/jack"]
+        }
+      ]
+    },
+    {
+      "host": "venus5",
+      "projects": [
+        {
+          "paths": ["/home/canopus/SRE"]
+        }
+      ]
+    },
+    {
+      "host": "pxe-server",
+      "projects": [
+        {
+          "paths": ["/home/mitch/pxe"]
+        }
+      ]
+    }
+  ],
+  "base_keymap": "VSCode",
+  "telemetry": {
+    "metrics": false,
+    "diagnostics": false
+  },
+  "ui_font_size": 16,
+  "buffer_font_size": 16,
+  "theme": {
+    "mode": "system",
+    "light": "One Light",
+    "dark": "Catppuccin Mocha"
+  },
+  "format_on_save": "on",
+  "languages": {
+    "Make": {
+      "hard_tabs": true
+    }
+  }
 }
