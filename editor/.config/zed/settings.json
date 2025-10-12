@@ -16,14 +16,12 @@
     "features": {
         "edit_prediction_provider": "copilot"
     },
+    "icon_theme": "Catppuccin Mocha",
     "ssh_connections": [
         {
             "host": "campus-pulse",
             "username": "unsw",
             "projects": [
-                {
-                    "paths": ["/home/mitch/pxe"]
-                },
                 {
                     "paths": ["/home/unsw/CampusPulse"]
                 },
@@ -55,16 +53,22 @@
             ]
         },
         {
-            "host": "aegis1",
+            "host": "aegis1.sdn.unsw.edu.au",
             "projects": [
                 {
                     "paths": ["/home/mitch/deployment-artifacts"]
+                },
+                {
+                    "paths": ["/home/mitch/clickhouse-example"]
                 },
                 {
                     "paths": ["/home/mitch/mitch/server-pxe"]
                 },
                 {
                     "paths": ["/home/mitch/platform-engineering"]
+                },
+                {
+                    "paths": ["/home/mitch/telescopedpi"]
                 },
                 {
                     "paths": ["/home/mitch/www.sdn.unsw.edu.au"]
@@ -81,8 +85,20 @@
             ]
         },
         {
+          "host": "venus5",
+          "projects": [
+            {
+              "paths": ["/home/canopus/SRE"]
+            }
+          ]
+        },
+        {
             "host": "pxe-server",
-            "projects": []
+            "projects": [
+                {
+                    "paths": ["/home/mitch/pxe"]
+                }
+            ]
         }
     ],
     "base_keymap": "VSCode",
@@ -95,10 +111,9 @@
     "theme": {
         "mode": "system",
         "light": "One Light",
-        "dark": "Zedokai (Filter Spectrum)"
+        "dark": "Catppuccin Mocha"
     },
-    // "tab_size": 4,
-    // "hard_tabs": false,
+    "format_on_save": "off",
     "languages": {
         "Make": {
             "hard_tabs": true
