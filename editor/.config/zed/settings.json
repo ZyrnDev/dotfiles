@@ -21,6 +21,7 @@
     {
       "host": "campus-pulse",
       "username": "unsw",
+      "args": [],
       "projects": [
         {
           "paths": ["/home/unsw/CampusPulse"]
@@ -38,6 +39,7 @@
     },
     {
       "host": "rpi5",
+      "args": [],
       "projects": [
         {
           "paths": ["/home/mitch/home-lab"]
@@ -46,6 +48,7 @@
     },
     {
       "host": "server1",
+      "args": [],
       "projects": [
         {
           "paths": ["/home/mitch/lets-go-chat"]
@@ -54,6 +57,7 @@
     },
     {
       "host": "aegis1.sdn.unsw.edu.au",
+      "args": [],
       "projects": [
         {
           "paths": ["/home/mitch/deployment-artifacts"]
@@ -78,6 +82,7 @@
     {
       "host": "mars7",
       "username": "unsw",
+      "args": [],
       "projects": [
         {
           "paths": ["/home/unsw/jack"]
@@ -86,6 +91,7 @@
     },
     {
       "host": "venus5",
+      "args": [],
       "projects": [
         {
           "paths": ["/home/canopus/SRE"]
@@ -94,6 +100,7 @@
     },
     {
       "host": "pxe-server",
+      "args": [],
       "projects": [
         {
           "paths": ["/home/mitch/pxe"]
