@@ -134,3 +134,7 @@ export FZF_ALT_C_OPTS="--walker-skip $__FZF_IGNORE_DIRS --preview 'tree -C {}'"
 # eval "$(fzf --bash)" # only for version 0.48.0 and later
 # source /usr/share/doc/fzf/examples/key-bindings.bash # for version 0.47.0 and earlier
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash # for manual installation via git
+
+if command -v tailscale >/dev/null 2>&1; then
+    source <(tailscale completion bash)
+fi
