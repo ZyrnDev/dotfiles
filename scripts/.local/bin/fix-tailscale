@@ -5,4 +5,4 @@ if tailscale status | grep -qE '^Logged out.$' ; then
     sudo tailscale login || { echo "Failed to login to tailscale" ; exit 1 ; }
 fi
 
-sudo tailscale up --accept-routes
+sudo tailscale up --accept-routes --operator=$USER
