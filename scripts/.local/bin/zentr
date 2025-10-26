@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+function list_files() {
+    # all but .git directory
+    find . -not -path '*/\.git/*'
+
+    # # alternatively, to only track tracked, modified, and untracked files in git
+    # git ls-files -cdmo --exclude-standard
+}
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <command>"
+    echo "Example: $0 make"
+    exit 1
+fi
+
+while true; do
+  list_files | entr -d "$@"
+  if [ $? -eq 0 ]; then
+    echo "detected entr was killed, exiting loop."
+    exit 1
+  fi
+done
