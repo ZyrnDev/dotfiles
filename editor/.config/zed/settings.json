@@ -24,16 +24,24 @@
       "args": [],
       "projects": [
         {
-          "paths": ["/home/unsw/CampusPulse"]
+          "paths": [
+            "/home/unsw/CampusPulse"
+          ]
         },
         {
-          "paths": ["/home/unsw/campus-pulse"]
+          "paths": [
+            "/home/unsw/campus-pulse"
+          ]
         },
         {
-          "paths": ["/home/unsw/database-refactor"]
+          "paths": [
+            "/home/unsw/database-refactor"
+          ]
         },
         {
-          "paths": ["/home/unsw/jack"]
+          "paths": [
+            "/home/unsw/jack"
+          ]
         }
       ]
     },
@@ -42,7 +50,9 @@
       "args": [],
       "projects": [
         {
-          "paths": ["/home/mitch/home-lab"]
+          "paths": [
+            "/home/mitch/home-lab"
+          ]
         }
       ]
     },
@@ -51,7 +61,9 @@
       "args": [],
       "projects": [
         {
-          "paths": ["/home/mitch/lets-go-chat"]
+          "paths": [
+            "/home/mitch/lets-go-chat"
+          ]
         }
       ]
     },
@@ -60,22 +72,34 @@
       "args": [],
       "projects": [
         {
-          "paths": ["/home/mitch/deployment-artifacts"]
+          "paths": [
+            "/home/mitch/clickhouse-example"
+          ]
         },
         {
-          "paths": ["/home/mitch/clickhouse-example"]
+          "paths": [
+            "/home/mitch/deployment-artifacts"
+          ]
         },
         {
-          "paths": ["/home/mitch/mitch/server-pxe"]
+          "paths": [
+            "/home/mitch/mitch/server-pxe"
+          ]
         },
         {
-          "paths": ["/home/mitch/platform-engineering"]
+          "paths": [
+            "/home/mitch/platform-engineering"
+          ]
         },
         {
-          "paths": ["/home/mitch/telescopedpi"]
+          "paths": [
+            "/home/mitch/telescopedpi"
+          ]
         },
         {
-          "paths": ["/home/mitch/www.sdn.unsw.edu.au"]
+          "paths": [
+            "/home/mitch/www.sdn.unsw.edu.au"
+          ]
         }
       ]
     },
@@ -85,7 +109,9 @@
       "args": [],
       "projects": [
         {
-          "paths": ["/home/unsw/jack"]
+          "paths": [
+            "/home/unsw/jack"
+          ]
         }
       ]
     },
@@ -94,7 +120,14 @@
       "args": [],
       "projects": [
         {
-          "paths": ["/home/canopus/SRE"]
+          "paths": [
+            "/home/canopus/SRE"
+          ]
+        },
+        {
+          "paths": [
+            "/home/canopus/ebpf"
+          ]
         }
       ]
     },
@@ -103,7 +136,9 @@
       "args": [],
       "projects": [
         {
-          "paths": ["/home/mitch/pxe"]
+          "paths": [
+            "/home/mitch/pxe"
+          ]
         }
       ]
     }
