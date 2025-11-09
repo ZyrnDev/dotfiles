@@ -10,6 +10,7 @@ if [ ! -f /etc/apt/keyrings/charm.gpg ] || [ ! -f /etc/apt/sources.list.d/charm.
 fi
 
 grep -v '^#' packages | xargs -r sudo apt install -yq
+curl -fsSL 'https://github.com/zellij-org/zellij/releases/latest/download/zellij-x86_64-unknown-linux-musl.tar.gz' | tar -xz -C ~/.local/bin zellij ranger
 clear
 
 for dir in `find . -maxdepth 1 -type d -not -path '.' | grep -v '\.git'`; do

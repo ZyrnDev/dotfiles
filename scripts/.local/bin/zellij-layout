@@ -5,6 +5,10 @@ if [ $# -eq 0 ]; then
         zellij --layout ./zellij.kdl --session `basename "$PWD"`
         exit $?
     else
-        zellij attach `zellij list-sessions | cut -d ' ' -f1 | gum choose`
+        if [ "$(zellij list-sessions | wc -l)" -eq 0 ]; then
+            zellij --session `gum input --placeholder "session name"`
+        else
+            zellij attach `zellij list-sessions | cut -d ' ' -f1 | gum choose`
+        fi
     fi
 fi
