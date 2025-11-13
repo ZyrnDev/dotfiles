@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <hostname>"
+    exit 1
+fi
+
+HOSTNAME="$1"
+
+ssh-keygen -f ~/.ssh/known_hosts -R "$HOSTNAME"
