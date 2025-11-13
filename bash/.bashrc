@@ -57,11 +57,27 @@ if [ -n "$force_color_prompt" ]; then
 fi
 
 if [ "$color_prompt" = yes ]; then
-    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\[\033[01;31m$(__git_ps1 " (%s)")\[\033[00m\]\$ '
+  function __colour_text() {
+      local colour_code="$1"
+      shift
+      echo "\[$(tput setaf "$colour_code")\]$*\[$(tput sgr0)\]"
+  }
 else
-    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$(__git_ps1 " (%s)")$ '
+  function __colour_text() {
+      shift
+      echo "$*"
+  }
 fi
-unset color_prompt force_color_prompt
+
+PS1=""
+PS1="${PS1} \$(if [ \$? = 0 ]; then echo '$(__colour_text 10 ✓)'; else echo '$(__colour_text 9 ✗)'; fi)" # Green - tick or Red - cross; based on last command status
+PS1="${PS1} $(__colour_text 8 '\D{[%r]}')" # Grey - Time in 12-hour format with seconds
+PS1="${PS1} $(__colour_text 229 '\u@\h')" # Light yellow - Username and hostname
+PS1="${PS1}:$(__colour_text 121 '\w')" # Light green - Current working directory
+PS1="${PS1}$(__colour_text 140 "\$(__git_ps1 ' (%s)')")" # Light purple - Git branch and status
+PS1="${PS1}\n$(__colour_text 117 \\$) " # Light cyan - New line and prompt symbol
+
+unset color_prompt force_color_prompt __colour_text
 
 # If this is an xterm set the title to user@host:dir
 case "$TERM" in
@@ -117,14 +133,19 @@ if ! shopt -oq posix; then
 fi
 
 # Add git prompt support
-if [ -f "$HOME/.local/bin/git-prompt.sh" ]; then
-    . "$HOME/.local/bin/git-prompt.sh"
+if [ -f /usr/lib/git-core/git-sh-prompt ]; then
+    . /usr/lib/git-core/git-sh-prompt
     GIT_PS1_SHOWDIRTYSTATE=true
+    GIT_PS1_SHOWUNTRACKEDFILES=true
 fi
 
 if [ -f "$HOME/.cargo/env" ]; then
     . "$HOME/.cargo/env"
 fi
+
+# set default editor
+export EDITOR="nano"
+export VISUAL="nano"
 
 # Set up fzf key bindings and fuzzy completion
 export __FZF_IGNORE_DIRS='.git'
