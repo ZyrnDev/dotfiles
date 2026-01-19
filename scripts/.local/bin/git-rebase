@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# update repository
+git fetch
+
+TARGET="${1:-}"
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# check if the main branch is main or master
+if [ -z "$TARGET" ]; then
+    if git branch --list | grep -qE '^(\*| ) (master)'; then
+        TARGET="origin/master"
+    else
+        TARGET="origin/main"
+    fi
+fi
+
+git rebase -i "$TARGET"
+
+git diff "$TARGET" "$BRANCH"
+gum confirm "force push to origin/$BRANCH?"
+git push --force --set-upstream origin "$BRANCH"

@@ -126,6 +126,11 @@
         },
         {
           "paths": [
+            "/home/canopus/canopusmanager"
+          ]
+        },
+        {
+          "paths": [
             "/home/canopus/ebpf"
           ]
         },
@@ -137,6 +142,11 @@
         {
           "paths": [
             "/home/canopus/pxe"
+          ]
+        },
+        {
+          "paths": [
+            "/home/canopus/website/canopus-react-main"
           ]
         }
       ]
