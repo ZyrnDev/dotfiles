@@ -6,5 +6,6 @@ alias xp='xclip -out -selection clipboard'
 
 # Git aliases
 alias gf='git fetch'
+alias gs='git status'
 alias gu='git fetch && git merge'
 alias gr='git-rebase'
