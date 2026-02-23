@@ -1,6 +1,3 @@
-# use a shell alias to authorize a session
-alias bw="flatpak run --command=bw com.bitwarden.desktop"
-
 alias zr='zentr'
 alias zl='zellij-layout'
 
