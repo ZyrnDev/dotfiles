@@ -27,7 +27,9 @@ if [ "$SKIP_PACKAGES" = false ]; then
 
     grep -v '^#' packages | xargs -r sudo apt install -yq
     curl -fsSL 'https://github.com/zellij-org/zellij/releases/latest/download/zellij-x86_64-unknown-linux-musl.tar.gz' | tar -xz -C ~/.local/bin zellij
-    curl -fsSL 'https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage' -o ~/.local/bin/nvim && chmod +x ~/.local/bin/nvim
+    # curl -fsSL 'https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage' -o ~/.local/bin/nvim && chmod +x ~/.local/bin/nvim
+
+    flatpak install -y flathub com.bitwarden.desktop
 fi
 
 for dir in `find . -maxdepth 1 -type d -not -path '.' | grep -v '\.git'`; do
