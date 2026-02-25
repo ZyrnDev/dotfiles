@@ -9,3 +9,7 @@ alias gf='git fetch'
 alias gs='git status'
 alias gu='git fetch && git merge'
 alias gr='git-rebase'
+
+# BitWarden CLI aliases
+alias bw='bitwarden'
+alias bwp='bitwarden-password'

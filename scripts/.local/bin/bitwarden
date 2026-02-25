@@ -8,7 +8,7 @@ function bw() {
 if [ ! -f /tmp/bw-session ]; then
     touch /tmp/bw-session
     chmod 600 /tmp/bw-session
-    bw login --raw >> /tmp/bw-session
+    bw unlock --raw >> /tmp/bw-session
 fi
 
 bw --session "$(cat /tmp/bw-session)" "$@"
