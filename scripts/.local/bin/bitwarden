@@ -8,7 +8,7 @@ BW_SESSION_FILE="/run/user/$(id -u)/bw-session"
 function bw() {
     flatpak run \
         --command=bw com.bitwarden.desktop \
-        --session "$(cat "$BW_SESSION_FILE")" \
+        --session "$(cat "$BW_SESSION_FILE" 2>/dev/null)" \
         "$@"
 }
 
