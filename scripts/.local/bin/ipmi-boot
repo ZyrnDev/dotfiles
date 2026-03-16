@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd "$SCRIPT_DIR"
+
+if [ "$#" -ne 1 ] && [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <ipmi_host> [<boot_device>]" 1>&2
+    exit 1
+fi
+
+SERVER="$1"
+if [ "$#" -eq 2 ]; then
+  export BOOT_DEVICE="$2"
+fi
+
+source ./common.sh
+
+CREDENTIALS=$(bitwarden list items --search "$SERVER" | jq '.[0].login | { username, password }')
+function ipmi() {
+    ssh venus5 ipmitool \
+        -I lanplus \
+        -H "$SERVER" \
+        -U "$(echo "$CREDENTIALS" | jq '.username')" \
+        -P "$(echo "$CREDENTIALS" | jq '.password')" \
+        "$@"
+}
+
+POWER_STATE=`ipmi chassis power status | cut -d ' ' -f 4`
+BOOTDEV=`
+    ipmi chassis bootdev 2>&1 \
+      | grep ':' | cut -d':' -f1 | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+      | prompt_choice BOOT_DEVICE --header "select a bootdev for the next boot of $SERVER"
+`
+
+if [ "$POWER_STATE" != "on" ]; then
+    log fatal 'chassis in unexpected state' server "$SERVER" state "$POWER_STATE"
+fi
+
+ipmi chassis bootdev "$BOOTDEV"
+ipmi chassis power cycle
+
