@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
 
 for dependency in gum; do
@@ -20,21 +19,27 @@ function log() {
 
 function prompt_choice() {
     if [ $# -lt 1 ]; then
-        log fatal 'prompt_choice requires at least one argument'
-        return 1
+        log error 'prompt_choice requires at least one argument, try: prompt_choice <ID> [<option>]...'
     fi
     local ID="$1"
     shift
-    if [ "${HEADLESS:-false}" = true ] || [ ! -v "$ID" ]; then
-        log fatal "environment variable is not set" variable "$ID"
+    if [ "${HEADLESS:-false}" = true ] && [ ! -v "$ID" ]; then
+        log error "environment variable is not set" variable "$ID"
     elif [ -v "$ID" ]; then
         grep -xF "${!ID:-}" | head -n 1 \
-          || log fatal "environment variable does not match any of the options" variable "$ID" value "${!ID:-}"
+          || log error "environment variable does not match any of the options" variable "$ID" value "${!ID:-}"
     else
         gum choose "$@"
     fi
 }
 
+###############################
+# string helpers
+###############################
+
+function trim() {
+    sed -E 's/^[[:space:]]*//;s/[[:space:]]*$//'
+}
 
 ################################
 ## jq helpers
@@ -49,7 +54,6 @@ function prompt_choice() {
 #        echo "Usage: to-object <key>" 1>&2
 #        exit 1
 #    fi
-#
 #    jq --arg key "$1" '{($key): .}'
 #}
 #
@@ -60,10 +64,3 @@ function prompt_choice() {
 #function merge() {
 #    jq -s 'add'
 #}
-
-# # Source - https://stackoverflow.com/a
-# # Posted by c.gutierrez, modified by community. See post 'Timeline' for change history
-# # Retrieved 2025-11-11, License - CC BY-SA 4.0
-# yell() { echo "$0: $*" >&2; }
-# die() { yell "$*"; exit 111; }
-# try() { "$@" || die "cannot $*"; }
