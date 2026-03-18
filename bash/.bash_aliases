@@ -11,6 +11,7 @@ alias xp='xclip -out -selection clipboard'
 
 # Git
 alias ga='git add'
+alias gac='git-auto-commit'
 alias gf='git fetch'
 alias gs='git status'
 alias gu='git fetch && git merge'
@@ -20,6 +21,6 @@ alias gr='git-rebase'
 alias ts='tailscale'
 alias tsh='tailscale status --json | jq -r '.Peer[].HostName' | gum filter'
 
-# BitWarden CLI aliases
+# BitWarden CLI
 alias bw='bitwarden'
 alias bwp='bitwarden-password'

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+function prompt() {
+    git diff --staged;
+    cat <<EOF
+---
+Task: Generate a commit message for the diff above.
+Constraints: Output ONLY the commit message. No quotes. No preamble.
+EOF
+}
+
+gum spin --show-output --title 'Generating git commit messsage...' -- \
+    copilot --silent --prompt "$(prompt)" \
+    | gum input --char-limit 0 --header 'git commit message' \
+    | git commit -F -
