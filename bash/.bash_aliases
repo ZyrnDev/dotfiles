@@ -1,16 +1,22 @@
+# Custom Scripts & Tools
 alias zr='zentr'
 alias zl='zellij-layout'
 
+# AI
+alias ai='copilot'
+
+# Clipboard
 alias xc='xclip -in -selection clipboard'
 alias xp='xclip -out -selection clipboard'
 
-# Git aliases
+# Git
+alias ga='git add'
 alias gf='git fetch'
 alias gs='git status'
 alias gu='git fetch && git merge'
 alias gr='git-rebase'
 
-# Tailscale CLI alias
+# Tailscale CLI
 alias ts='tailscale'
 alias tsh='tailscale status --json | jq -r '.Peer[].HostName' | gum filter'
 
