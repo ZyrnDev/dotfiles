@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# set -euo pipefail
 
 dependencies=(entr find)
 
@@ -26,13 +26,14 @@ fi
 
 # make script executable if it isn't already
 if [ -f "$1" ] && [ ! -x "$1" ]; then
-    chmod +x "$1"
+    chmod +x "$1" || exit 1
 fi
 
 while true; do
   list_files | entr -d "$@"
-  if [ $? -eq 0 ]; then
+  EXIT_CODE=$?
+  if [ $EXIT_CODE -eq 0 ]; then
     echo "detected entr was killed, exiting loop."
-    exit 1
+    exit 0
   fi
 done
