@@ -178,6 +178,12 @@
           ]
         }
       ]
+    },
+    {
+      "host": "aegis1",
+      "username": "unsw",
+      "args": [],
+      "projects": []
     }
   ],
   "base_keymap": "VSCode",
