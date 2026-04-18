@@ -22,5 +22,5 @@ alias ts='tailscale'
 alias tsh='tailscale status --json | jq -r '.Peer[].HostName' | gum filter'
 
 # BitWarden CLI
-alias bw='bitwarden'
+alias bw='rbw'
 alias bwp='bitwarden-password'

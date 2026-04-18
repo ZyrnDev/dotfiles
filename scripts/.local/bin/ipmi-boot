@@ -16,19 +16,9 @@ if [ "$#" -eq 2 ]; then
   export BOOT_DEVICE="$2"
 fi
 
-CREDENTIALS=$(bitwarden list items --search "$SERVER" | jq '.[0].login | { username, password }')
-function ipmi() {
-    ssh venus5 ipmitool \
-        -I lanplus \
-        -H "$SERVER" \
-        -U "$(echo "$CREDENTIALS" | jq '.username')" \
-        -P "$(echo "$CREDENTIALS" | jq '.password')" \
-        "$@"
-}
-
-POWER_STATE=`ipmi chassis power status | cut -d ' ' -f 4`
+POWER_STATE=`ipmi $SERVER chassis power status | cut -d ' ' -f 4`
 BOOTDEV=`
-    ipmi chassis bootdev 2>&1 \
+    ipmi $SERVER chassis bootdev 2>&1 \
       | grep ':' | cut -d':' -f1 | trim \
       | prompt_choice BOOT_DEVICE --header "select a bootdev for the next boot of $SERVER"
 `
@@ -37,5 +27,5 @@ if [ "$POWER_STATE" != "on" ]; then
     log fatal 'chassis in unexpected state' server "$SERVER" state "$POWER_STATE"
 fi
 
-ipmi chassis bootdev "$BOOTDEV"
-ipmi chassis power cycle
+ipmi $SERVER chassis bootdev "$BOOTDEV"
+ipmi $SERVER chassis power cycle
