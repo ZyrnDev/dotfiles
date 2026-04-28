@@ -159,3 +159,9 @@ export FZF_ALT_C_OPTS="--walker-skip $__FZF_IGNORE_DIRS --preview 'tree -C {}'"
 if command -v tailscale >/dev/null 2>&1; then
     source <(tailscale completion bash)
 fi
+
+if command -v rbw >/dev/null 2>&1; then
+    source <(rbw gen-completions bash)
+fi
+
+# rclone mount google_drive: /home/mitch/Documents/Google Drive/ --vfs-cache-mode full --daemon
