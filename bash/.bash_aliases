@@ -23,7 +23,7 @@ alias tsh='tailscale status --json | jq -r '.Peer[].HostName' | gum filter'
 
 # BitWarden CLI
 alias bw='rbw'
-alias bwp='bitwarden-password'
+alias bwp='bitwarden-password --clipboard'
 
 # Go
 alias go='docker run --rm --network=host -w /app -v "$(pwd):/app" golang:latest'
