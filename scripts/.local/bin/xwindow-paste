@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export GUM_LOG_LEVEL=info
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/common.sh"
+
+ID=
+
+for arg in "$@"; do
+    case "$arg" in
+        --id=*)
+            ID="${arg#*=}"
+            ;;
+        *)
+            log fatal "unexpected argument" arg "$arg"
+            ;;
+    esac
+done
+
+if [ -z "$ID" ]; then
+    log fatal "window id must be provided" arg "--id=<id>"
+fi
+
+log debug "focusing window" id "$ID"
+xdotool windowactivate --sync "$ID"
+
+log debug "typing password into window" id "$ID"
+xdotool type --window "$ID" \
+    --clearmodifiers \
+    --file <(xclip -out -selection clipboard)

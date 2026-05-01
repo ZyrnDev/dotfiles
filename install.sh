@@ -37,7 +37,6 @@ if [ "$SKIP_PACKAGES" = false ]; then
 
     # curl -fsSL 'https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage' -o ~/.local/bin/nvim && chmod +x ~/.local/bin/nvim
 
-    flatpak install -y flathub com.bitwarden.desktop
 fi
 
 for dir in `find . -maxdepth 1 -type d -not -path '.' | grep -v '\.git'`; do

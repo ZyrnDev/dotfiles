@@ -8,6 +8,7 @@ alias ai='copilot'
 # Clipboard
 alias xc='xclip -in -selection clipboard'
 alias xp='xclip -out -selection clipboard'
+alias xwp='xwindow-paste --id=$(xdotool selectwindow)'
 
 # Git
 alias ga='git add'
