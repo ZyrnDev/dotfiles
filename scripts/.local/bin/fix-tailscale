@@ -1,8 +1,12 @@
-#!/bin/env bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Check if user is logged in
-if tailscale status | grep -qE '^Logged out.$' ; then
-    sudo tailscale login || { echo "Failed to login to tailscale" ; exit 1 ; }
+export GUM_LOG_LEVEL="${GUM_LOG_LEVEL:-info}"
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/common.sh"
+
+if [ -n "$(tailscale status --json | jq -r '.AuthURL')" ]; then
+    log info "Tailscale is waiting authentication. Opening the auth URL in the browser..."
+    tailscale status --json | jq -r '.AuthURL' | xargs open
 fi
-
-sudo tailscale up --accept-routes --operator=$USER
