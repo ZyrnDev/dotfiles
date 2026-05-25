@@ -1,12 +1,32 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -xeuo pipefail
 
 export GUM_LOG_LEVEL="${GUM_LOG_LEVEL:-info}"
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/common.sh"
 
-if [ -n "$(tailscale status --json | jq -r '.AuthURL')" ]; then
-    log info "Tailscale is waiting authentication. Opening the auth URL in the browser..."
-    tailscale status --json | jq -r '.AuthURL' | xargs open
-fi
+function automate_tailscale_auth() {
+    AUTH_OPENED=false
+    while read line; do
+      if [[ "$AUTH_OPENED" == false ]] && echo "$line" | grep -q "https://login.tailscale.com/"; then
+        URL=$(echo "$line" | grep -o "https://login.tailscale.com/[^\s]*")
+        open "$URL"
+        AUTH_OPENED=true
+      fi
+    done
+}
+
+# if [ -n "$(tailscale status --json | jq -r '.AuthURL')" ]; then
+#     log info "Tailscale is waiting authentication. Opening the auth URL in the browser..."
+#     tailscale status --json | jq -r '.AuthURL' | xargs open
+# fi
+
+timeout 1 ssh venus5 < /dev/null &> /dev/null \
+    && log info "Tailscale is already authenticated and working." \
+    || log info "Tailscale is not authenticated. Attempting to authenticate..."
+
+tailscale status | grep -fq "Logged out" \
+    || tailscale up | automate_tailscale_auth
+
+ssh venus5 echo OK 2>&1 | automate_tailscale_auth

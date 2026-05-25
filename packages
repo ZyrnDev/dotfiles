@@ -10,6 +10,7 @@ htop
 ipmitool
 jq
 ripgrep
+sd
 stow
 tree
 wget

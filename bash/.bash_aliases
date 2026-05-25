@@ -21,6 +21,7 @@ alias gr='git-rebase'
 # Tailscale CLI
 alias ts='tailscale'
 alias tsh='tailscale status --json | jq -r '.Peer[].HostName' | gum filter'
+alias tsf='fix-tailscale'
 
 # BitWarden CLI
 alias bw='rbw'
