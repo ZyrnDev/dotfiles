@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/common.sh"
+
+# Check bash version
+if [ "${BASH_VERSINFO:-0}" -lt 4 ]; then
+    log fatal "This script requires Bash 4.0 or higher." arg "BASH_VERSINFO=${BASH_VERSINFO[*]}"
+fi
+
+mapfile -n 2 lines
+if [ ${#lines[@]} -eq 2 ]; then
+    # 2 lines found: pipe them plus the rest of the stream to 'choose'
+    { printf "%s" "${lines[@]}"; cat; } | gum filter --limit=1 --header "multiple items found, select one:"
+elif [ ${#lines[@]} -eq 1 ]; then
+    # Exactly 1 line found
+    printf "%s" "${lines[@]}"
+fi

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export GUM_LOG_LEVEL="${GUM_LOG_LEVEL:-info}"
+
 for dependency in gum; do
     if ! command -v "$dependency" &> /dev/null; then
         echo "Error: $dependency is not installed." >&2
@@ -64,3 +66,8 @@ function trim() {
 #function merge() {
 #    jq -s 'add'
 #}
+
+if [ ! -z "${ZEBUG+x}" ]; then
+    set -x
+    GUM_LOG_LEVEL=debug
+fi

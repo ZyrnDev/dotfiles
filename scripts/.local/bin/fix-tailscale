@@ -27,6 +27,6 @@ timeout 1 ssh venus5 < /dev/null &> /dev/null \
     || log info "Tailscale is not authenticated. Attempting to authenticate..."
 
 tailscale status | grep -fq "Logged out" \
-    || tailscale up | automate_tailscale_auth
+    || tailscale up --accept-routes 2>&1 | automate_tailscale_auth
 
 ssh venus5 echo OK 2>&1 | automate_tailscale_auth
