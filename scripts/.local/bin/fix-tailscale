@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
-set -xeuo pipefail
-
-export GUM_LOG_LEVEL="${GUM_LOG_LEVEL:-info}"
+set -euo pipefail
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/common.sh"

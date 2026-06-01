@@ -198,6 +198,17 @@
       "username": "unsw",
       "args": [],
       "projects": []
+    },
+    {
+      "host": "dev",
+      "args": [],
+      "projects": [
+        {
+          "paths": [
+            "/home/mitch/work"
+          ]
+        }
+      ]
     }
   ],
   "base_keymap": "VSCode",
