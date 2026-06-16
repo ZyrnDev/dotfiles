@@ -29,4 +29,8 @@ xdotool windowactivate --sync "$ID"
 log debug "typing password into window" id "$ID"
 xdotool type --window "$ID" \
     --clearmodifiers \
-    --file <(xclip -out -selection clipboard)
+    --file <(
+        xclip -out -selection clipboard \
+            | sed 's/$/\r/g' \
+            | tr -d '\n'
+    )
