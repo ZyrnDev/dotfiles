@@ -9,7 +9,7 @@ function automate_tailscale_auth() {
     while read line; do
       if [[ "$AUTH_OPENED" == false ]] && echo "$line" | grep -q "https://login.tailscale.com/"; then
         URL=$(echo "$line" | grep -o "https://login.tailscale.com/[^\s]*")
-        open "$URL"
+        google-chrome "$URL"
         AUTH_OPENED=true
       fi
     done

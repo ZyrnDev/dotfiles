@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+COUNTER=/tmp/counter
+
+if [ ! -f "$COUNTER" ]; then
+    echo 0 > "$COUNTER"
+fi
+
+
+if [ "$#" -eq 1 ] && [[ $1 =~ ^[0-9]+$ ]]; then
+    echo "$1" > "$COUNTER"
+elif [ "$#" -eq 0 ]; then
+    COUNT=$(cat "$COUNTER")
+    COUNT=$((COUNT + 1))
+    echo "$COUNT" > "$COUNTER"
+else
+    echo "Usage: $0 [<number>|reset]" 1>&2
+    exit 1
+fi
+
+cat "$COUNTER"
