@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export GUM_LOG_LEVEL=info
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/common.sh"
+
+if [[ $# -eq 0 ]]; then
+    xdotool selectwindow
+elif [[ $# -eq 1 ]]; then
+    xdotool search --name "$1" | choose
+else
+    log fatal "unexpected arguments" args "$*"
+fi

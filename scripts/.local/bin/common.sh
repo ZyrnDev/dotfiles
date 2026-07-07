@@ -31,7 +31,22 @@ function prompt_choice() {
         grep -xF "${!ID:-}" | head -n 1 \
           || log error "environment variable does not match any of the options" variable "$ID" value "${!ID:-}"
     else
-        gum choose "$@"
+        gum filter "$@"
+    fi
+}
+
+function prompt_input() {
+    if [ $# -lt 1 ]; then
+        log error 'prompt_input requires at least one argument, try: prompt_input <ID> [<option>]...'
+    fi
+    local ID="$1"
+    shift
+    if [ "${HEADLESS:-false}" = true ] && [ ! -v "$ID" ]; then
+        log error "environment variable is not set" variable "$ID"
+    elif [ -v "$ID" ]; then
+        echo "${!ID:-}"
+    else
+        gum input "$@"
     fi
 }
 

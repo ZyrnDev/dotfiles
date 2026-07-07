@@ -26,6 +26,8 @@ fi
 log debug "focusing window" id "$ID"
 xdotool windowactivate --sync "$ID"
 
+sleep 0.5
+
 log debug "typing password into window" id "$ID"
 xdotool type --window "$ID" \
     --clearmodifiers \
