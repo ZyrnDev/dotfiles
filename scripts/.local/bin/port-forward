@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/common.sh"
+
+DEFAULT_TARGET="venus5.canopusnet.dev"
+DEFAULT_PORTS="80,443"
+DEFAULT_RELAY="canopus@venus5"
+
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -d|--defaults)
+            TARGET="$DEFAULT_TARGET"
+            PORTS="$DEFAULT_PORTS"
+            RELAY="$DEFAULT_RELAY"
+            ;;
+        -h|--host)
+            shift
+            TARGET="$1"
+            ;;
+        -p|--ports)
+            shift
+            PORTS="$1"
+            ;;
+        -r|--r|--relay)
+            shift
+            RELAY="$1"
+            ;;
+        *)
+            log fatal "unexpected argument" arg "$1"
+            ;;
+    esac
+    shift
+done
+
+# Get variables from the user with defaults
+TARGET=${TARGET:-$(gum input --header "Target Host" --value "venus5.canopusnet.dev")}
+PORTS=${PORTS:-$(gum input --header "Ports to Foward (comma-separated)" --value "80,443")}
+RELAY=${RELAY:-$(gum input --header "SSH Relay" --value "canopus@venus5")}
+
+ARGS=("-N")
+for PORT in $(echo "$PORTS" | tr ',' ' '); do
+    ARGS+=("-L" "$PORT:$TARGET:$PORT")
+done
+
+ARGS+=("$RELAY")
+
+log info "forwarding ports..." target "$TARGET" ports "$PORTS" relay "$RELAY"
+sudo ssh "${ARGS[@]}"
