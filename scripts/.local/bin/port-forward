@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/common.sh"
 
-DEFAULT_TARGET="venus5.canopusnet.dev"
+DEFAULT_TARGET="localhost"
 DEFAULT_PORTS="80,443"
 DEFAULT_RELAY="canopus@venus5"
 
@@ -48,4 +48,4 @@ done
 ARGS+=("$RELAY")
 
 log info "forwarding ports..." target "$TARGET" ports "$PORTS" relay "$RELAY"
-sudo ssh "${ARGS[@]}"
+ssh "${ARGS[@]}"
