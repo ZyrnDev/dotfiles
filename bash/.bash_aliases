@@ -3,7 +3,9 @@ alias zr='zentr'
 alias zl='zellij-layout'
 
 # AI
-alias ai='copilot'
+alias ai='opencode'
+alias aic='opencode session list --format json | jq -r ".[].id" | xargs -r opencode session delete'
+# alias ais="opencode --session `opencode session list --format json | jq -r '.[] | \"\(.title) (\(.id))\"' | gum filter | sed -E 's/.* \((.*)\)$/\1/'`"
 
 # Clipboard
 alias xc='xclip -in -selection clipboard'
