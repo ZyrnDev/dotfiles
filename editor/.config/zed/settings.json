@@ -212,6 +212,17 @@
           ]
         }
       ]
+    },
+    {
+      "host": "memphis",
+      "args": [],
+      "projects": [
+        {
+          "paths": [
+            "/home/mitch/conf/"
+          ]
+        }
+      ]
     }
   ],
   "base_keymap": "VSCode",
