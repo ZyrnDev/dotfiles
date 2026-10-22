@@ -1,0 +1,176 @@
+#!/usr/bin/env bash
+# Drive a Citrix window on an X11 desktop: find it, screenshot it, click, type.
+#
+# Citrix sessions (wfica) and Citrix Enterprise Browser are opaque to DOM tools,
+# so this works like computer use: screenshot -> look -> act -> screenshot.
+#
+# Usage:
+#   citrix find [REGEX]                list matching windows (default: Citrix ones)
+#   citrix shot WIN [OUT] [--no-raise] capture WIN to PNG, remember its scale
+#   citrix click X Y [--right|--double] click at coords in the last screenshot
+#   citrix type TEXT                   type into the last-shot window
+#   citrix key KEY...                  press keys (xdotool names: Return ctrl+a)
+#   citrix scroll up|down [N] [X Y]    scroll N ticks (default: window centre)
+#
+# Needs: X11, xdotool, wmctrl, xwininfo, imagemagick (import, identify).
+set -euo pipefail
+
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/citrix-skill"
+STATE="$STATE_DIR/last-shot"
+DEFAULT_OUT="$STATE_DIR/shot.png"
+DEFAULT_PATTERN='citrix|wfica|ctxchromium|selfservice'
+MAX_EDGE=1568      # keeps screenshots readable without wasting image tokens
+TYPE_DELAY_MS=40   # Citrix drops keys when typed too fast
+
+function die() {
+    echo "citrix: $*" >&2
+    exit 1
+}
+
+function usage() {
+    sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'
+    exit "${1:-0}"
+}
+
+function require() {
+    local dependency
+    for dependency in "$@"; do
+        command -v "$dependency" &> /dev/null || die "$dependency is not installed"
+    done
+}
+
+function activate() {
+    xdotool windowactivate --sync "$(( $1 ))"
+    sleep 0.2
+}
+
+function load_state() {
+    [ -f "$STATE" ] || die "no screenshot taken yet; run: citrix shot WIN"
+    # shellcheck source=/dev/null
+    source "$STATE"
+}
+
+# Map screenshot coords to window coords: sets WX and WY.
+function to_window() {
+    local x="$1" y="$2"
+    [[ "$x" =~ ^[0-9]+$ && "$y" =~ ^[0-9]+$ ]] || die "coordinates must be whole numbers: $x $y"
+    (( x < SHOT_W && y < SHOT_H )) || die "($x,$y) is outside the last screenshot (${SHOT_W}x${SHOT_H})"
+    WX=$(( (x * WIN_W + SHOT_W / 2) / SHOT_W ))
+    WY=$(( (y * WIN_H + SHOT_H / 2) / SHOT_H ))
+}
+
+function cmd_find() {
+    require wmctrl
+    local pattern="${1:-$DEFAULT_PATTERN}" found=false
+    local wid desk pid wmclass host title cmdline haystack
+    while read -r wid desk pid wmclass host title; do
+        cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2> /dev/null || true)
+        # the default only looks at class and process, so a window titled "citrix.md" doesn't match
+        if [ $# -eq 0 ]; then
+            haystack="$wmclass $cmdline"
+        else
+            haystack="$title $wmclass $cmdline"
+        fi
+        if grep -qiE -- "$pattern" <<< "$haystack"; then
+            found=true
+            printf '%s\tpid=%s\tclass=%s\ttitle=%s\tcmd=%.80s\n' "$wid" "$pid" "$wmclass" "$title" "$cmdline"
+        fi
+    done < <(wmctrl -lpx)
+    $found || die "no matching windows; is a Citrix session open? try: citrix find ."
+}
+
+function cmd_shot() {
+    require xwininfo import identify
+    local win="" out="" raise=true arg
+    for arg in "$@"; do
+        case "$arg" in
+            --no-raise) raise=false ;;
+            -*) die "unknown option: $arg" ;;
+            *) if [ -z "$win" ]; then win="$arg"; elif [ -z "$out" ]; then out="$arg"; else die "unexpected argument: $arg"; fi ;;
+        esac
+    done
+    [ -n "$win" ] || die "usage: citrix shot WIN [OUT] [--no-raise]"
+    out="${out:-$DEFAULT_OUT}"
+    mkdir -p "$STATE_DIR"
+
+    $raise && activate "$win"
+    local info win_w win_h shot_w shot_h
+    info=$(xwininfo -id "$win") || die "no such window: $win"
+    win_w=$(awk '/^  Width:/ {print $2}' <<< "$info")
+    win_h=$(awk '/^  Height:/ {print $2}' <<< "$info")
+
+    import -silent -window "$win" -resize "${MAX_EDGE}x${MAX_EDGE}>" "$out"
+    read -r shot_w shot_h < <(identify -format '%w %h' "$out")
+
+    printf 'WIN=%q\nWIN_W=%d\nWIN_H=%d\nSHOT_W=%d\nSHOT_H=%d\n' \
+        "$win" "$win_w" "$win_h" "$shot_w" "$shot_h" > "$STATE"
+    printf '%s\t%sx%s\t(window %sx%s)\n' "$out" "$shot_w" "$shot_h" "$win_w" "$win_h"
+}
+
+function cmd_click() {
+    local button=1 repeat=() coords=() arg
+    for arg in "$@"; do
+        case "$arg" in
+            --right) button=3 ;;
+            --double) repeat=(--repeat 2 --delay 120) ;;
+            -*) die "unknown option: $arg" ;;
+            *) coords+=("$arg") ;;
+        esac
+    done
+    [ ${#coords[@]} -eq 2 ] || die "usage: citrix click X Y [--right|--double]"
+    load_state
+    to_window "${coords[0]}" "${coords[1]}"
+    activate "$WIN"
+    xdotool mousemove --window "$(( WIN ))" "$WX" "$WY" click "${repeat[@]}" "$button"
+    echo "clicked button $button at window ($WX,$WY)"
+}
+
+function cmd_type() {
+    [ $# -eq 1 ] || die "usage: citrix type TEXT"
+    load_state
+    activate "$WIN"
+    xdotool type --delay "$TYPE_DELAY_MS" -- "$1"
+    echo "typed ${#1} chars"
+}
+
+function cmd_key() {
+    [ $# -ge 1 ] || die "usage: citrix key KEY..."
+    load_state
+    activate "$WIN"
+    xdotool key --delay 80 -- "$@"
+    echo "pressed $*"
+}
+
+function cmd_scroll() {
+    [ $# -eq 1 ] || [ $# -eq 2 ] || [ $# -eq 4 ] || die "usage: citrix scroll up|down [N] [X Y]"
+    local button
+    case "$1" in
+        up) button=4 ;;
+        down) button=5 ;;
+        *) die "scroll direction must be up or down" ;;
+    esac
+    local n="${2:-3}"
+    [[ "$n" =~ ^[0-9]+$ ]] || die "scroll count must be a number: $n"
+    load_state
+    to_window "${3:-$(( SHOT_W / 2 ))}" "${4:-$(( SHOT_H / 2 ))}"
+    activate "$WIN"
+    xdotool mousemove --window "$(( WIN ))" "$WX" "$WY" click --repeat "$n" --delay 60 "$button"
+    echo "scrolled $1 $n"
+}
+
+[ $# -ge 1 ] || usage 1
+[ "${XDG_SESSION_TYPE:-x11}" != wayland ] || die "this needs an X11 session; xdotool can't see Wayland windows"
+require xdotool
+
+command="$1"
+shift
+case "$command" in
+    find) cmd_find "$@" ;;
+    shot) cmd_shot "$@" ;;
+    click) cmd_click "$@" ;;
+    type) cmd_type "$@" ;;
+    key) cmd_key "$@" ;;
+    scroll) cmd_scroll "$@" ;;
+    -h|--help|help) usage ;;
+    *) die "unknown command: $command (try: citrix --help)" ;;
+esac

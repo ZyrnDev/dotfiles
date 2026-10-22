@@ -15,4 +15,6 @@ stow
 tree
 wget
 xclip
+imagemagick
+wmctrl
 xdotool
