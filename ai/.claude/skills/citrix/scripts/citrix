@@ -60,11 +60,21 @@ function to_window() {
 }
 
 function cmd_find() {
-    require wmctrl
-    local pattern="${1:-$DEFAULT_PATTERN}" found=false
-    local wid desk pid wmclass host title cmdline haystack
-    while read -r wid desk pid wmclass host title; do
-        cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2> /dev/null || true)
+    require wmctrl xprop
+    local pattern="${1:-$DEFAULT_PATTERN}" found=false wfica=false
+    local wid desk pid host title wmclass cmdline haystack
+    pgrep -x wfica > /dev/null && wfica=true
+    # -x isn't used: WM_CLASS may contain spaces (e.g. "Google Chrome"), which shifts the columns
+    while read -r wid desk pid host title; do
+        wmclass=$(xprop -id "$wid" WM_CLASS 2> /dev/null | sed -n 's/^WM_CLASS([^)]*) = //p')
+        if [ "$pid" -gt 0 ]; then
+            cmdline=$(tr '\0' ' ' 2> /dev/null < "/proc/$pid/cmdline" || true)
+        elif $wfica; then
+            # Citrix seamless windows (wfica) don't set _NET_WM_PID or a Citrix class
+            cmdline="wfica (no pid; likely a Citrix session window)"
+        else
+            cmdline=""
+        fi
         # the default only looks at class and process, so a window titled "citrix.md" doesn't match
         if [ $# -eq 0 ]; then
             haystack="$wmclass $cmdline"
@@ -75,7 +85,7 @@ function cmd_find() {
             found=true
             printf '%s\tpid=%s\tclass=%s\ttitle=%s\tcmd=%.80s\n' "$wid" "$pid" "$wmclass" "$title" "$cmdline"
         fi
-    done < <(wmctrl -lpx)
+    done < <(wmctrl -lp)
     $found || die "no matching windows; is a Citrix session open? try: citrix find ."
 }
 
@@ -100,7 +110,7 @@ function cmd_shot() {
     win_h=$(awk '/^  Height:/ {print $2}' <<< "$info")
 
     import -silent -window "$win" -resize "${MAX_EDGE}x${MAX_EDGE}>" "$out"
-    read -r shot_w shot_h < <(identify -format '%w %h' "$out")
+    read -r shot_w shot_h < <(identify -format '%w %h\n' "$out")
 
     printf 'WIN=%q\nWIN_W=%d\nWIN_H=%d\nSHOT_W=%d\nSHOT_H=%d\n' \
         "$win" "$win_w" "$win_h" "$shot_w" "$shot_h" > "$STATE"

@@ -30,11 +30,18 @@ Everything goes through the bash script `scripts/citrix` in this skill's folder
 ~/.claude/skills/citrix/scripts/citrix find
 ```
 
-Lists windows whose title, WM class or process matches Citrix
+Lists windows whose WM class or process matches Citrix
 (`wfica` = a virtual desktop/app session, `CtxChromiumBrowser` = Citrix Enterprise
-Browser, `selfservice` = the Workspace launcher). Pass a regex to search for
-something else, or `find .` to list every window. Nothing found → ask the user to
-open the session; don't launch Citrix yourself.
+Browser, `selfservice` = the Workspace launcher). Pass a regex to search titles
+too, or `find .` to list every window. Nothing found → ask the user to open the
+session; don't launch Citrix yourself.
+
+Seamless Citrix apps (a published Chrome, say) look like ordinary local windows:
+they carry the remote app's own class and title and no process ID. `find` labels
+any window without a process ID as `wfica (no pid; …)` while a `wfica` process is
+running. If you see two windows with the same title, check which one is the
+Citrix one before acting; the remote one usually also shows a Windows-style title
+bar in the screenshot.
 
 ## 2. Screenshot it
 
