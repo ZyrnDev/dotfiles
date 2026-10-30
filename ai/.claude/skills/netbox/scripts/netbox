@@ -1,0 +1,252 @@
+#!/usr/bin/env bash
+# Read and change NetBox through its REST API (default: netbox.canopusnet.dev).
+#
+# Writes are dry runs unless --apply is given: they print the request (and, for
+# update and delete, the current values) so the change can be checked first.
+#
+# Usage:
+#   netbox get PATH [KEY=VALUE...] [--all]  GET a list or object; --all follows pages
+#   netbox create PATH JSON [--apply]       POST (JSON object, or array for bulk)
+#   netbox update PATH JSON [--apply]       PATCH an object, or a list with [{id,...}]
+#   netbox delete PATH [--apply]            DELETE one object
+#   netbox changes [KEY=VALUE...]           recent changelog entries (core/object-changes)
+#
+#   PATH is relative to /api/ (dcim/devices/12/) or a full URL from a "url" field.
+#   JSON is a literal, @FILE, or - for stdin.
+#   --message TEXT  adds a changelog_message to create/update/delete.
+#
+# Token: $NETBOX_TOKEN, else `rbw get` of $NETBOX_RBW_ITEM (a Bitwarden name or
+# id, default "Mitch's Netbox API Key"; field $NETBOX_RBW_FIELD, default
+# the password). $NETBOX_URL overrides the host.
+#
+# Needs: curl, jq, and rbw if the token comes from Bitwarden.
+set -euo pipefail
+
+NETBOX_URL="${NETBOX_URL:-https://netbox.canopusnet.dev}"
+NETBOX_URL="${NETBOX_URL%/}"
+DEFAULT_RBW_ITEM="Mitch's Netbox API Key"  # an apostrophe inside ${...:-} breaks quoting
+NETBOX_RBW_ITEM="${NETBOX_RBW_ITEM:-$DEFAULT_RBW_ITEM}"
+NETBOX_RBW_FIELD="${NETBOX_RBW_FIELD:-}"
+PAGE_LIMIT=1000
+
+function die() {
+    echo "netbox: $*" >&2
+    exit 1
+}
+
+function usage() {
+    sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'
+    exit "${1:-0}"
+}
+
+function require() {
+    local dependency
+    for dependency in "$@"; do
+        command -v "$dependency" &> /dev/null || die "$dependency is not installed"
+    done
+}
+
+function load_token() {
+    [ -n "${NETBOX_TOKEN:-}" ] && return
+    [ -n "$NETBOX_RBW_ITEM" ] || die "set NETBOX_TOKEN, or NETBOX_RBW_ITEM to the Bitwarden entry holding the API token"
+    require rbw
+    if [ -n "$NETBOX_RBW_FIELD" ]; then
+        NETBOX_TOKEN=$(rbw get --field "$NETBOX_RBW_FIELD" "$NETBOX_RBW_ITEM") || die "rbw get failed for $NETBOX_RBW_ITEM"
+    else
+        NETBOX_TOKEN=$(rbw get "$NETBOX_RBW_ITEM") || die "rbw get failed for $NETBOX_RBW_ITEM"
+    fi
+    [ -n "$NETBOX_TOKEN" ] || die "empty token from Bitwarden entry $NETBOX_RBW_ITEM"
+}
+
+# Turn PATH into a full API URL with a trailing slash before any query string.
+function api_url() {
+    local path="$1" query=""
+    case "$path" in
+        "$NETBOX_URL"/api/*) printf '%s' "$path"; return ;;
+        http://* | https://*) die "URL is not on $NETBOX_URL: $path" ;;
+    esac
+    path="${path#/}"
+    path="${path#api/}"
+    if [[ "$path" == *\?* ]]; then
+        query="?${path#*\?}"
+        path="${path%%\?*}"
+    fi
+    [[ "$path" == */ ]] || path="$path/"
+    printf '%s/api/%s%s' "$NETBOX_URL" "$path" "$query"
+}
+
+# request METHOD URL [BODY] [curl args...]: prints the response body, dies on HTTP errors.
+function request() {
+    local method="$1" url="$2" body="${3:-}" response status auth
+    shift 3 || shift $#
+    load_token
+    # v2 tokens (NetBox 4.5+) start with nbt_ and use Bearer; v1 tokens use Token
+    if [[ "$NETBOX_TOKEN" == nbt_* ]]; then auth="Bearer $NETBOX_TOKEN"; else auth="Token $NETBOX_TOKEN"; fi
+    local args=(-sS -X "$method" -H "Accept: application/json" -w '\n%{http_code}')
+    [ -n "$body" ] && args+=(-H "Content-Type: application/json" --data-binary "$body")
+    # header via stdin config so the token stays out of the process list
+    response=$(curl "${args[@]}" "$@" --config - "$url" <<< "header = \"Authorization: $auth\"") \
+        || die "request failed: $method $url"
+    status="${response##*$'\n'}"
+    response="${response%$'\n'*}"
+    if (( status >= 400 )); then
+        jq . <<< "$response" >&2 2> /dev/null || echo "$response" >&2
+        die "HTTP $status from $method $url"
+    fi
+    printf '%s\n' "$response"
+}
+
+function read_json() {
+    local json
+    case "$1" in
+        -) json=$(cat) ;;
+        @*) json=$(< "${1#@}") ;;
+        *) json="$1" ;;
+    esac
+    jq -e . <<< "$json" > /dev/null 2>&1 || die "not valid JSON: $1"
+    printf '%s' "$json"
+}
+
+# Parse write options into APPLY, MESSAGE and the positional ARGS array.
+function parse_write_args() {
+    APPLY=false MESSAGE="" ARGS=()
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --apply) APPLY=true ;;
+            --message) [ $# -ge 2 ] || die "--message needs text"; MESSAGE="$2"; shift ;;
+            --message=*) MESSAGE="${1#--message=}" ;;
+            -) ARGS+=("$1") ;;
+            -*) die "unknown option: $1" ;;
+            *) ARGS+=("$1") ;;
+        esac
+        shift
+    done
+}
+
+function with_message() {
+    if [ -z "$MESSAGE" ]; then
+        cat
+    else
+        jq -c --arg m "$MESSAGE" 'if type == "array" then map(. + {changelog_message: $m}) else . + {changelog_message: $m} end'
+    fi
+}
+
+function dry_run_note() {
+    echo "DRY RUN: nothing changed. Re-run with --apply to send it." >&2
+}
+
+function cmd_get() {
+    local path="" all=false params=() arg
+    for arg in "$@"; do
+        case "$arg" in
+            --all) all=true ;;
+            -*) die "unknown option: $arg" ;;
+            # PATH comes first and may hold its own ?query, so only later KEY=VALUEs are filters
+            *) if [ -z "$path" ]; then
+                   path="$arg"
+               elif [[ "$arg" == *=* ]]; then
+                   params+=(--data-urlencode "$arg")
+               else
+                   die "unexpected argument: $arg"
+               fi ;;
+        esac
+    done
+    [ -n "$path" ] || die "usage: netbox get PATH [KEY=VALUE...] [--all]"
+    [[ "$path" != *=* || "$path" == *\?* ]] || die "PATH must come first: netbox get PATH [KEY=VALUE...] [--all]"
+    local url
+    url=$(api_url "$path")
+    if ! $all; then
+        request GET "$url" "" -G "${params[@]}"
+        return
+    fi
+    # follow "next" links and print one array of all results
+    local page next
+    page=$(request GET "$url" "" -G --data-urlencode "limit=$PAGE_LIMIT" "${params[@]}")
+    jq -e 'type == "object" and has("results")' <<< "$page" > /dev/null \
+        || die "--all needs a list path like dcim/devices/, not one object; drop --all"
+    {
+        jq -c '.results[]' <<< "$page"
+        next=$(jq -r '.next // empty' <<< "$page")
+        while [ -n "$next" ]; do
+            page=$(request GET "$next" "")
+            jq -c '.results[]' <<< "$page"
+            next=$(jq -r '.next // empty' <<< "$page")
+        done
+    } | jq -s .
+}
+
+function cmd_create() {
+    parse_write_args "$@"
+    [ ${#ARGS[@]} -eq 2 ] || die "usage: netbox create PATH JSON [--apply] [--message TEXT]"
+    local url body
+    url=$(api_url "${ARGS[0]}")
+    body=$(read_json "${ARGS[1]}" | with_message)
+    if ! $APPLY; then
+        echo "POST $url"
+        jq . <<< "$body"
+        dry_run_note
+        return
+    fi
+    request POST "$url" "$body"
+}
+
+function cmd_update() {
+    parse_write_args "$@"
+    [ ${#ARGS[@]} -eq 2 ] || die "usage: netbox update PATH JSON [--apply] [--message TEXT]"
+    local url body
+    url=$(api_url "${ARGS[0]}")
+    body=$(read_json "${ARGS[1]}" | with_message)
+    if ! $APPLY; then
+        echo "PATCH $url"
+        jq . <<< "$body"
+        if jq -e 'type == "object"' <<< "$body" > /dev/null; then
+            # show the current value of each field being changed
+            echo "current values:"
+            request GET "$url" "" | jq --argjson new "$body" \
+                '{id, display} + with_entries(select(.key as $k | $new | has($k)))'
+        fi
+        dry_run_note
+        return
+    fi
+    request PATCH "$url" "$body"
+}
+
+function cmd_delete() {
+    parse_write_args "$@"
+    [ ${#ARGS[@]} -eq 1 ] || die "usage: netbox delete PATH [--apply] [--message TEXT]"
+    local url current body=""
+    url=$(api_url "${ARGS[0]}")
+    [[ "$url" =~ /[0-9]+/$ ]] || die "delete takes one object's path ending in its id, e.g. dcim/devices/12/"
+    current=$(request GET "$url" "")
+    [ -n "$MESSAGE" ] && body=$(jq -nc --arg m "$MESSAGE" '{changelog_message: $m}')
+    if ! $APPLY; then
+        echo "DELETE $url"
+        jq '{id, display, url}' <<< "$current"
+        dry_run_note
+        return
+    fi
+    request DELETE "$url" "$body" > /dev/null
+    jq -r '"deleted \(.display) (id \(.id))"' <<< "$current"
+}
+
+function cmd_changes() {
+    local params=() arg
+    for arg in "$@"; do
+        [[ "$arg" == *=* ]] || die "usage: netbox changes [KEY=VALUE...]"
+        params+=(--data-urlencode "$arg")
+    done
+    request GET "$(api_url core/object-changes/)" "" -G --data-urlencode "limit=20" "${params[@]}" \
+        | jq '[.results[] | {time, user: .user_name, action: .action.value, type: .changed_object_type,
+                id: .changed_object_id, object: .changed_object.display, message}]'
+}
+
+[ $# -ge 1 ] || usage 1
+require curl jq
+
+command="$1"
+shift
+case "$command" in
+    get | create | update | delete | changes) "cmd_$command" "$@" ;;
+    -h | --help | help) usage ;;
+    *) die "unknown command: $command (try --help)" ;;
+esac
