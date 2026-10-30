@@ -72,9 +72,9 @@ covers the change it described, not later ones. Deletes, bulk changes and
 anything touching primary IPs, cables, or prefixes/VLANs in use deserve an
 explicit "this will…" sentence.
 
-When the user has already given the exact change ("set device 123 to offline"),
-the dry run is still worth showing, but you may apply it in the same turn if it
-matches what they asked and touches only the objects they named.
+Always wait for that yes, even when the user gave the exact change ("set device
+123 to offline"); the dry run can show a different object or value than they
+expected.
 
 ## 4. Verify
 
