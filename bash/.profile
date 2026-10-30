@@ -37,5 +37,3 @@ fi
 if [ -d "$HOME/go/bin" ] ; then
     PATH="$PATH:$HOME/go/bin"
 fi
-
-export COPILOT_MODEL="gpt-5-mini"

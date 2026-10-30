@@ -18,7 +18,7 @@ CREDENTIALS=$(rbw search "$SERVER" | head -n 1)
 if [ -z "$CREDENTIALS" ]; then
     log fatal 'no credentials found for server' server "$SERVER"
 fi
-ssh venus5 ipmitool \
+ipmitool \
     -I lanplus \
     -H "$SERVER" \
     -U "$(rbw get --raw "$CREDENTIALS" | jq -r '.data.username | @sh')" \
