@@ -141,11 +141,18 @@ function cmd_get() {
         case "$arg" in
             --all) all=true ;;
             -*) die "unknown option: $arg" ;;
-            *=*) params+=(--data-urlencode "$arg") ;;
-            *) [ -z "$path" ] || die "unexpected argument: $arg"; path="$arg" ;;
+            # PATH comes first and may hold its own ?query, so only later KEY=VALUEs are filters
+            *) if [ -z "$path" ]; then
+                   path="$arg"
+               elif [[ "$arg" == *=* ]]; then
+                   params+=(--data-urlencode "$arg")
+               else
+                   die "unexpected argument: $arg"
+               fi ;;
         esac
     done
     [ -n "$path" ] || die "usage: netbox get PATH [KEY=VALUE...] [--all]"
+    [[ "$path" != *=* || "$path" == *\?* ]] || die "PATH must come first: netbox get PATH [KEY=VALUE...] [--all]"
     local url
     url=$(api_url "$path")
     if ! $all; then
@@ -155,6 +162,8 @@ function cmd_get() {
     # follow "next" links and print one array of all results
     local page next
     page=$(request GET "$url" "" -G --data-urlencode "limit=$PAGE_LIMIT" "${params[@]}")
+    jq -e 'type == "object" and has("results")' <<< "$page" > /dev/null \
+        || die "--all needs a list path like dcim/devices/, not one object; drop --all"
     {
         jq -c '.results[]' <<< "$page"
         next=$(jq -r '.next // empty' <<< "$page")
