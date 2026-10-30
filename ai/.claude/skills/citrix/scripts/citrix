@@ -15,7 +15,9 @@
 # Needs: X11, xdotool, wmctrl, xwininfo, imagemagick (import, identify).
 set -euo pipefail
 
-STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/citrix-skill"
+# screenshots show the remote session, so keep them in a directory only this user can read
+STATE_DIR="${XDG_RUNTIME_DIR:+$XDG_RUNTIME_DIR/citrix-skill}"
+STATE_DIR="${STATE_DIR:-/tmp/citrix-skill-$UID}"
 STATE="$STATE_DIR/last-shot"
 DEFAULT_OUT="$STATE_DIR/shot.png"
 DEFAULT_PATTERN='citrix|wfica|ctxchromium|selfservice'
@@ -39,15 +41,33 @@ function require() {
     done
 }
 
+# Window IDs go into $(( )), which runs $(...) in array subscripts, so allow only numbers.
+function check_window_id() {
+    [[ "$1" =~ ^(0x[0-9a-fA-F]+|[0-9]+)$ ]] || die "window id must be a number like 0x04e00007: $1"
+}
+
 function activate() {
+    check_window_id "$1"
     xdotool windowactivate --sync "$(( $1 ))"
     sleep 0.2
 }
 
+# Read the last-shot values as data, never as code: sets WIN, WIN_W, WIN_H, SHOT_W, SHOT_H.
 function load_state() {
     [ -f "$STATE" ] || die "no screenshot taken yet; run: citrix shot WIN"
-    # shellcheck source=/dev/null
-    source "$STATE"
+    [ -O "$STATE" ] || die "$STATE is not owned by you; delete it and run: citrix shot WIN"
+    local key value
+    WIN="" WIN_W="" WIN_H="" SHOT_W="" SHOT_H=""
+    while IFS='=' read -r key value; do
+        case "$key" in
+            WIN) WIN="$value" ;;
+            WIN_W | WIN_H | SHOT_W | SHOT_H) printf -v "$key" '%s' "$value" ;;
+        esac
+    done < "$STATE"
+    check_window_id "$WIN"
+    for value in "$WIN_W" "$WIN_H" "$SHOT_W" "$SHOT_H"; do
+        [[ "$value" =~ ^[1-9][0-9]*$ ]] || die "bad state in $STATE; run: citrix shot WIN"
+    done
 }
 
 # Map screenshot coords to window coords: sets WX and WY.
@@ -100,9 +120,13 @@ function cmd_shot() {
         esac
     done
     [ -n "$win" ] || die "usage: citrix shot WIN [OUT] [--no-raise]"
+    check_window_id "$win"
     out="${out:-$DEFAULT_OUT}"
-    mkdir -p "$STATE_DIR"
+    mkdir -p -m 700 "$STATE_DIR"
+    [ -O "$STATE_DIR" ] || die "$STATE_DIR is not owned by you"
 
+    # import exits 0 and grabs another window (or waits for a mouse click) when WIN is gone
+    xwininfo -id "$win" &> /dev/null || die "no such window: $win (it may have closed; run: citrix find)"
     $raise && activate "$win"
     local info win_w win_h shot_w shot_h
     info=$(xwininfo -id "$win") || die "no such window: $win"
@@ -112,7 +136,7 @@ function cmd_shot() {
     import -silent -window "$win" -resize "${MAX_EDGE}x${MAX_EDGE}>" "$out"
     read -r shot_w shot_h < <(identify -format '%w %h\n' "$out")
 
-    printf 'WIN=%q\nWIN_W=%d\nWIN_H=%d\nSHOT_W=%d\nSHOT_H=%d\n' \
+    printf 'WIN=%s\nWIN_W=%d\nWIN_H=%d\nSHOT_W=%d\nSHOT_H=%d\n' \
         "$win" "$win_w" "$win_h" "$shot_w" "$shot_h" > "$STATE"
     printf '%s\t%sx%s\t(window %sx%s)\n' "$out" "$shot_w" "$shot_h" "$win_w" "$win_h"
 }
