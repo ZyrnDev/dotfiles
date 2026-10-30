@@ -221,6 +221,11 @@
           "paths": [
             "/home/mitch/conf/"
           ]
+        },
+        {
+          "paths": [
+            "/home/mitch/work"
+          ]
         }
       ]
     }
