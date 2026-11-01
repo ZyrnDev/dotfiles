@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# agent-vault: front end for agent-vault-broker, for both the owner and agents.
+# Installed copy (/usr/local/bin) sources /usr/local/lib/agent-vault/lib.sh.
+set -euo pipefail
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/../lib/agent-vault/lib.sh"
+
+OWNER=$(av_owner)
+BROKER=$(av_broker_path)
+
+function usage() {
+    cat >&2 <<'EOF'
+usage:
+  owner:
+    agent-vault grant   [--ttl 30m] [--uses N] [--label L] [--user agent] ITEM...
+    agent-vault session [--ttl 30m] [--uses N] [--user agent] ITEM... -- CMD...
+    agent-vault list
+    agent-vault revoke  ID|LABEL|--all
+    agent-vault log     [-n 20]
+  agent (needs AGENT_VAULT_TOKEN):
+    agent-vault get  [--field F] ITEM
+    agent-vault exec --env VAR=ITEM[#field]... -- CMD...
+
+ITEM is an rbw name or UUID; NAME#field limits a grant to one field.
+'session' runs CMD with AGENT_VAULT_TOKEN set and revokes the grant when it exits.
+EOF
+    exit 2
+}
+
+function broker() {
+    if [ "$(id -un)" = "$OWNER" ]; then
+        "$BROKER" "$@"
+    else
+        sudo -n -u "$OWNER" "$BROKER" "$@"
+    fi
+}
+
+# token goes over stdin so it never shows up in `ps`
+function fetch() {
+    [ -n "${AGENT_VAULT_TOKEN:-}" ] || av_die "AGENT_VAULT_TOKEN is not set"
+    local item="$1" field="${2:-}"
+    printf '%s\n' "$AGENT_VAULT_TOKEN" | broker get "$item" ${field:+--field "$field"}
+}
+
+[ "$#" -gt 0 ] || usage
+cmd="$1"
+shift
+
+case "$cmd" in
+    grant|list|revoke|log)
+        broker "$cmd" "$@"
+        ;;
+    session)
+        grant_args=()
+        while [ "$#" -gt 0 ] && [ "$1" != -- ]; do
+            grant_args+=("$1")
+            shift
+        done
+        [ "${1:-}" = -- ] && [ "$#" -gt 1 ] || av_die "session needs a command after --"
+        shift
+        # our --label goes last so it wins and the trap can find the grant
+        label="session-$$"
+        token=$(broker grant "${grant_args[@]}" --label "$label")
+        trap 'broker revoke "$label" 2>/dev/null || true' EXIT
+        AGENT_VAULT_TOKEN="$token" "$@"
+        ;;
+    get)
+        field=""
+        if [ "${1:-}" = --field ]; then
+            field="${2:?}"
+            shift 2
+        fi
+        [ "$#" -eq 1 ] || usage
+        fetch "$1" "$field"
+        ;;
+    exec)
+        envs=()
+        while [ "$#" -gt 0 ] && [ "$1" != -- ]; do
+            [ "$1" = --env ] && [ "$#" -ge 2 ] || av_die "expected --env VAR=ITEM[#field]"
+            spec="$2"
+            var="${spec%%=*}"
+            item="${spec#*=}"
+            [[ $spec == *=* && $var =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || av_die "--env expects VAR=ITEM[#field]"
+            field=""
+            [[ $item == *#* ]] && field="${item#*#}"
+            value=$(fetch "${item%%#*}" "$field")
+            envs+=("$var=$value")
+            shift 2
+        done
+        [ "${1:-}" = -- ] && [ "$#" -gt 1 ] || av_die "exec needs a command after --"
+        shift
+        # the child gets the secrets, not the token
+        exec env -u AGENT_VAULT_TOKEN "${envs[@]}" "$@"
+        ;;
+    *)
+        usage
+        ;;
+esac

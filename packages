@@ -16,3 +16,4 @@ tree
 wget
 xclip
 xdotool
+sqlite3

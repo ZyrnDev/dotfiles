@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# One-time system setup for agent-vault (needs sudo). Re-run after editing the
+# broker so the root-owned copy is updated.
+#   - `agent` user that AI agents run as (cannot reach your rbw-agent socket)
+#   - broker, lib.sh + client copied to root-owned paths (sudoers must not point into $HOME)
+#   - sudoers: agent may run only `agent-vault-broker get` as you;
+#              you may run anything as agent, keeping AGENT_VAULT_TOKEN
+set -euo pipefail
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/common.sh"
+
+AGENT_USER="${AGENT_USER:-agent}"
+OWNER="$(id -un)"
+BROKER=/usr/local/lib/agent-vault/agent-vault-broker
+
+if ! id "$AGENT_USER" &>/dev/null; then
+    log info 'creating agent user' user "$AGENT_USER"
+    sudo useradd --create-home --shell /bin/bash --user-group "$AGENT_USER"
+fi
+
+# any of these hands the agent a way around the broker
+for group in sudo docker adm lxd libvirt "$OWNER"; do
+    if id -nG "$AGENT_USER" | tr ' ' '\n' | grep -qx "$group"; then
+        log warn 'agent user is in a privileged group, remove it' user "$AGENT_USER" group "$group"
+    fi
+done
+
+log info 'installing broker and client'
+sudo install -d -o root -g root -m 755 "$(dirname "$BROKER")"
+sudo install -o root -g root -m 755 "$SCRIPT_DIR/../lib/agent-vault/agent-vault-broker" "$BROKER"
+sudo install -o root -g root -m 644 "$SCRIPT_DIR/../lib/agent-vault/lib.sh" "$(dirname "$BROKER")/lib.sh"
+sudo install -o root -g root -m 755 "$SCRIPT_DIR/agent-vault" /usr/local/bin/agent-vault
+echo "AGENT_VAULT_OWNER=$OWNER" | sudo tee /etc/agent-vault.conf >/dev/null
+
+log info 'installing sudoers drop-in'
+SUDOERS=$(mktemp)
+cat > "$SUDOERS" <<EOF
+# agent -> owner: only the broker's get subcommand
+$AGENT_USER ALL=($OWNER) NOPASSWD: $BROKER get *
+# owner -> agent: launch agents, passing the grant token through
+Defaults>$AGENT_USER env_keep += "AGENT_VAULT_TOKEN"
+$OWNER ALL=($AGENT_USER) NOPASSWD: ALL
+EOF
+sudo visudo -cf "$SUDOERS" >/dev/null
+sudo install -o root -g root -m 440 "$SUDOERS" /etc/sudoers.d/agent-vault
+rm -f "$SUDOERS"
+
+log info 'done' owner "$OWNER" agent "$AGENT_USER"

@@ -1,0 +1,281 @@
+#!/bin/bash -p
+# agent-vault-broker: scoped, time-limited rbw secrets for AI agents.
+#
+# No daemon. The owner (the rbw user) runs this directly to manage grants; an
+# agent running as another user reaches it only through a sudoers rule:
+#
+#   agent ALL=(mitch) NOPASSWD: /usr/local/lib/agent-vault/agent-vault-broker get *
+#
+# so `get` always executes as the owner, and sudo tells us who really called it
+# via SUDO_UID. Grants live in SQLite; only a sha256 of each token is stored and
+# secret values are never written anywhere.
+#
+#   owner:  grant ITEM... [--ttl 30m] [--uses N] [--label L] [--user agent]
+#           list | revoke ID|LABEL|--all | log [-n 20]
+#   agent:  get ITEM [--field F]          (token on stdin)
+set -euo pipefail
+umask 077
+
+source "$( dirname -- "${BASH_SOURCE[0]}" )/lib.sh"
+
+OWNER_UID=$(id -u)
+OWNER_NAME=$(id -un)
+OWNER_HOME=$(getent passwd "$OWNER_UID" | cut -d: -f6)
+# sudo sets SUDO_UID itself and callers cannot override it
+CALLER_UID="${SUDO_UID:-$OWNER_UID}"
+av_is_uint "$CALLER_UID" || av_die "bad SUDO_UID"
+VIA_SUDO=false
+[ "$CALLER_UID" != "$OWNER_UID" ] && VIA_SUDO=true
+
+# agents reach us through sudo, so never let their environment steer us
+if [ "$VIA_SUDO" = true ]; then
+    DB="$OWNER_HOME/.local/state/agent-vault/grants.db"
+    RBW=rbw
+else
+    DB="${AGENT_VAULT_DB:-$OWNER_HOME/.local/state/agent-vault/grants.db}"
+    RBW="${AGENT_VAULT_RBW:-rbw}"
+fi
+
+###############################
+# sqlite
+###############################
+
+function sql() {
+    sqlite3 -batch -bail -separator $'\t' \
+        -cmd '.timeout 10000' -cmd 'PRAGMA foreign_keys = ON' \
+        "$DB" "$@"
+}
+
+# string literal; '' is the only escape SQLite needs
+function q() {
+    printf "'%s'" "${1//\'/\'\'}"
+}
+
+function init_db() {
+    mkdir -p -m 700 "$(dirname -- "$DB")"
+    sql >/dev/null <<'EOF'
+CREATE TABLE IF NOT EXISTS grants (
+    id TEXT PRIMARY KEY,
+    token_hash TEXT UNIQUE NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    user TEXT,
+    uid INTEGER,                      -- if set, only this caller uid may use it
+    created INTEGER NOT NULL,
+    expires INTEGER NOT NULL,
+    uses INTEGER NOT NULL DEFAULT 0,
+    max_uses INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS grant_items (
+    grant_id TEXT NOT NULL REFERENCES grants(id) ON DELETE CASCADE,
+    item TEXT NOT NULL,               -- NAME (any field) or NAME#field
+    PRIMARY KEY (grant_id, item)
+);
+CREATE TABLE IF NOT EXISTS audit (
+    ts INTEGER NOT NULL,
+    event TEXT NOT NULL,
+    grant_id TEXT,
+    label TEXT,
+    item TEXT,
+    caller_uid INTEGER,
+    detail TEXT
+);
+EOF
+}
+
+# audit EVENT GRANT_ID LABEL ITEM DETAIL (empty -> NULL)
+function audit_sql() {
+    local v=() arg
+    for arg in "$@"; do
+        if [ -n "$arg" ]; then v+=("$(q "$arg")"); else v+=(NULL); fi
+    done
+    echo "INSERT INTO audit VALUES (unixepoch(), ${v[0]}, ${v[1]}, ${v[2]}, ${v[3]}, $CALLER_UID, ${v[4]});"
+}
+
+function prune() {
+    local dead="expires <= unixepoch() OR (max_uses > 0 AND uses >= max_uses)"
+    sql <<EOF
+BEGIN IMMEDIATE;
+INSERT INTO audit SELECT unixepoch(), 'expire', id, label, NULL, $CALLER_UID, NULL FROM grants WHERE $dead;
+DELETE FROM grants WHERE $dead;
+COMMIT;
+EOF
+}
+
+###############################
+# commands
+###############################
+
+function cmd_grant() {
+    local ttl="$AV_DEFAULT_TTL" uses=0 label="" user="" uid=NULL items=() item
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --ttl) ttl="${2:?}"; shift ;;
+            --uses) uses="${2:?}"; shift ;;
+            --label) label="${2:?}"; shift ;;
+            --user) user="${2:?}"; shift ;;
+            -*) av_die "unknown option: $1" ;;
+            *) av_check_item "$1"; items+=("$1") ;;
+        esac
+        shift
+    done
+    [ "${#items[@]}" -gt 0 ] || av_die "grant needs at least one item"
+    av_is_uint "$uses" || av_die "--uses must be a number"
+    local seconds
+    seconds=$(av_parse_ttl "$ttl")
+    if [ -n "$user" ]; then
+        uid=$(id -u -- "$user") || av_die "no such user: $user"
+    fi
+
+    local token id
+    token=$(av_new_token)
+    id=$(av_new_id)
+    {
+        echo "BEGIN IMMEDIATE;"
+        echo "INSERT INTO grants (id, token_hash, label, user, uid, created, expires, max_uses) VALUES ($(q "$id"), $(q "$(av_hash "$token")"), $(q "$label"), $([ -n "$user" ] && q "$user" || echo NULL), $uid, unixepoch(), unixepoch() + $seconds, $((10#$uses)));"
+        for item in "${items[@]}"; do
+            echo "INSERT OR IGNORE INTO grant_items VALUES ($(q "$id"), $(q "$item"));"
+        done
+        audit_sql grant "$id" "$label" "" "items=$(IFS=,; echo "${items[*]}") ttl=$ttl uses=$uses user=${user:--}"
+        echo "COMMIT;"
+    } | sql
+    echo "grant $id expires in $ttl: $(IFS=,; echo "${items[*]}")" >&2
+    echo "$token"
+}
+
+function cmd_list() {
+    sql -header -column <<'EOF'
+SELECT g.id AS ID,
+       coalesce(nullif(g.label, ''), '-') AS LABEL,
+       coalesce(g.user, '-') AS USER,
+       (g.expires - unixepoch()) || 's' AS EXPIRES,
+       g.uses || '/' || (CASE g.max_uses WHEN 0 THEN '∞' ELSE g.max_uses END) AS USES,
+       group_concat(i.item, ',') AS ITEMS
+FROM grants g JOIN grant_items i ON i.grant_id = g.id
+GROUP BY g.id ORDER BY g.expires;
+EOF
+}
+
+function cmd_revoke() {
+    [ "$#" -eq 1 ] || av_die "usage: revoke ID|LABEL|--all"
+    local where revoked
+    if [ "$1" = --all ]; then
+        where="1"
+    else
+        where="id = $(q "$1") OR label = $(q "$1")"
+    fi
+    revoked=$(sql <<EOF
+BEGIN IMMEDIATE;
+INSERT INTO audit SELECT unixepoch(), 'revoke', id, label, NULL, $CALLER_UID, NULL FROM grants WHERE $where;
+DELETE FROM grants WHERE $where RETURNING id;
+COMMIT;
+EOF
+)
+    [ -n "$revoked" ] || av_die "no matching grant"
+    sed 's/^/revoked /' <<<"$revoked" >&2
+}
+
+function cmd_log() {
+    local n=20
+    if [ "${1:-}" = -n ]; then
+        n="${2:?}"
+    fi
+    av_is_uint "$n" || av_die "-n must be a number"
+    local ts event uid rest who
+    sql "SELECT * FROM (SELECT datetime(ts, 'unixepoch', 'localtime'), event, caller_uid,
+                coalesce(grant_id, '-'), label, item, detail, rowid
+         FROM audit ORDER BY rowid DESC LIMIT $n) ORDER BY rowid" \
+        | while IFS=$'\t' read -r ts event uid rest; do
+            who=$(getent passwd "$uid" | cut -d: -f1)
+            # drop the trailing rowid and empty columns
+            rest=$(tr '\t' '\n' <<<"$rest" | sed '$d' | grep -v '^$' | paste -sd ' ' | sed 's/ /  /g')
+            echo "$ts  $event  ${who:-$uid}  $rest"
+        done
+}
+
+function rbw_run() {
+    if [ "$VIA_SUDO" = true ]; then
+        # sudo reset the environment; point rbw at the owner's agent socket
+        env -i HOME="$OWNER_HOME" USER="$OWNER_NAME" PATH=/usr/local/bin:/usr/bin:/bin \
+            XDG_RUNTIME_DIR="/run/user/$OWNER_UID" "$RBW" "$@" </dev/null
+    else
+        "$RBW" "$@" </dev/null
+    fi
+}
+
+function cmd_get() {
+    local item="" field=""
+    [ "$#" -ge 1 ] || av_die "usage: get ITEM [--field F]"
+    item="$1"
+    shift
+    if [ "$#" -gt 0 ]; then
+        [ "$#" -eq 2 ] && [ "$1" = --field ] && [ -n "$2" ] || av_die "usage: get ITEM [--field F]"
+        field="$2"
+    fi
+    av_check_item "$item"
+    [[ $item != *#* ]] || av_die "use --field, not NAME#field"
+    local scoped="$item${field:+#$field}"
+
+    local token=""
+    IFS= read -r token || true
+    av_is_token "$token" || {
+        sql "$(audit_sql deny "" "" "$scoped" "invalid or expired token")"
+        av_deny "invalid or expired token"
+    }
+    rbw_run unlocked >/dev/null 2>&1 || av_die "vault is locked; ask the owner to run \`rbw unlock\`"
+
+    local hash valid granted
+    hash=$(q "$(av_hash "$token")")
+    valid="token_hash = $hash AND expires > unixepoch() AND (max_uses = 0 OR uses < max_uses)
+           AND (uid IS NULL OR uid = $CALLER_UID)"
+    # one statement checks token, expiry, uses, caller and scope, and counts the use
+    granted=$(sql <<EOF
+BEGIN IMMEDIATE;
+UPDATE grants SET uses = uses + 1
+WHERE $valid
+  AND EXISTS (SELECT 1 FROM grant_items WHERE grant_id = grants.id AND item IN ($(q "$item"), $(q "$scoped")))
+RETURNING id, label;
+COMMIT;
+EOF
+)
+    if [ -z "$granted" ]; then
+        local id label
+        IFS=$'\t' read -r id label < <(sql "SELECT id, label FROM grants WHERE $valid") || true
+        if [ -n "${id:-}" ]; then
+            sql "$(audit_sql deny "$id" "$label" "$scoped" "out of scope")"
+            av_deny "not in grant: $scoped"
+        fi
+        sql "$(audit_sql deny "" "" "$scoped" "invalid or expired token")"
+        av_deny "invalid or expired token"
+    fi
+    local id label
+    IFS=$'\t' read -r id label <<<"$granted"
+    sql "$(audit_sql get "$id" "$label" "$scoped" "")"
+
+    # rbw only ever sees a name that is in the grant
+    rbw_run get ${field:+--field "$field"} -- "$item" \
+        || av_die "rbw get failed for $scoped"
+}
+
+###############################
+# main
+###############################
+
+[ "$#" -gt 0 ] || av_die "usage: agent-vault-broker grant|list|revoke|log|get ..."
+cmd="$1"
+shift
+
+if [ "$VIA_SUDO" = true ] && [ "$cmd" != get ]; then
+    av_die "only \`get\` is allowed through sudo"
+fi
+command -v sqlite3 >/dev/null || av_die "sqlite3 is not installed"
+
+init_db
+prune
+case "$cmd" in
+    grant) cmd_grant "$@" ;;
+    list) cmd_list "$@" ;;
+    revoke) cmd_revoke "$@" ;;
+    log) cmd_log "$@" ;;
+    get) cmd_get "$@" ;;
+    *) av_die "unknown command: $cmd" ;;
+esac
